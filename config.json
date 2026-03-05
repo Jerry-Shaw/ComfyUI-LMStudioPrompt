@@ -1,0 +1,15 @@
+{
+  "lmstudio": {
+    "base_url": "http://127.0.0.1:1234",
+    "token": "lm-studio-api-token",
+    "timeout": 60,
+    "last_model": "qwen/qwen3-vl-8b",
+    "available_models": [
+      "qwen/qwen3-vl-8b",
+      "hy-mt1.5-1.8b",
+      "llama3-8b",
+      "mistral-7b",
+      "deepseek-r1-distill-qwen-14b"
+    ]
+  }
+}
