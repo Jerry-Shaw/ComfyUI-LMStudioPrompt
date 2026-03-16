@@ -15,8 +15,7 @@ def _load_config():
             "base_url": "http://127.0.0.1:1234",
             "token": "lm-studio-api-token",
             "timeout": 60,
-            "last_model": "",
-            "available_models": ["qwen/qwen3-vl-8b", "hy-mt1.5-1.8b", "llama3-8b", "mistral-7b", "deepseek-r1-distill-qwen-14b"]
+            "last_model": ""
         }
     }
     try:
@@ -92,12 +91,18 @@ def _format_prompt(text: str, ptype: str) -> str:
     hint = "正向" if ptype == "positive" else "负向"
     return f"""你是一个专业的Stable Diffusion提示词转换专家。
 请将以下用户输入转换为高质量的{hint}提示词，用于AI绘画。
-转换规则：
+
+【重要规则】
+1. 严禁任何形式的思考过程、分析、解释或额外说明
+2. 禁止使用"让我想想"、"首先"、"然后"、"综上所述"等思考性词语
+3. 禁止输出"思考过程："、"分析："等标签
+4. 直接输出转换后的提示词，不要有任何前缀或后缀
+
+【转换规则】
 1. 保持所有权重标记不变，如 (word:1.2)、[word]、{{word}}
 2. 保持所有特殊标记不变，如 BREAK、AND
 3. 使用英文逗号分隔不同的提示词元素
 4. 输出简洁、专业的英文提示词
-5. 只输出转换后的提示词，不要添加任何解释
 
 用户输入：{text}
 
@@ -128,14 +133,13 @@ class LMStudioPromptConverter:
     @classmethod
     def INPUT_TYPES(cls):
         cfg = _CONFIG["lmstudio"]
-        models = cfg["available_models"]
-        last = cfg["last_model"] or models[0]
+        last = cfg["last_model"] or ""
         return {
             "required": {
                 "提示词": ("STRING", {"multiline": True, "placeholder": "输入提示词..."}),
                 "地址": ("STRING", {"forceInput": True}),
                 "令牌": ("STRING", {"forceInput": True}),
-                "模型": (models, {"default": last}),
+                "模型": ("STRING", {"default": last, "placeholder": "输入模型名称，例如: qwen/qwen3.5-9b"}),
                 "类型": (["正向", "负向"], {"default": "正向"}),
             }
         }
@@ -148,13 +152,15 @@ class LMStudioPromptConverter:
         prompt = kwargs["提示词"].strip()
         addr = kwargs["地址"]
         token = kwargs["令牌"]
-        model = kwargs["模型"]
+        model = kwargs["模型"].strip()
         ptype = "positive" if kwargs["类型"] == "正向" else "negative"
         
         if not prompt:
             return ("请输入提示词",)
         if not addr or not token:
             return ("请先连接LM-Studio",)
+        if not model:
+            return ("请输入模型名称",)
         
         req = _format_prompt(prompt, ptype)
         key = (prompt, model, ptype)
@@ -165,7 +171,12 @@ class LMStudioPromptConverter:
         try:
             res = _lmstudio_chat(addr, token, model, req, _CONFIG["lmstudio"]["timeout"])
             res = res.strip().strip('"\'')
-            res = re.sub(r'^(转换后的英文提示词:|Converted prompt:)\s*', '', res, flags=re.I)
+            res = re.sub(r'^(转换后的英文提示词:|Converted prompt:|思考[：:]|分析[：:]|让我想想|首先|然后|最后|综上所述)[\s:]*', '', res, flags=re.I)
+
+            if '\n' in res:
+                lines = [line.strip() for line in res.split('\n') if line.strip()]
+                if lines:
+                    res = lines[0]
             _CACHE[key] = res
             return (res,)
         except Exception as e:
