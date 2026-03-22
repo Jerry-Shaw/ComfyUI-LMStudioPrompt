@@ -1,0 +1,6 @@
+{
+  "base_url": "http://127.0.0.1:1234",
+  "token": "sk-lm-xxxxxxxx:xxxxxxxxxxxxxxxx",
+  "timeout": 60,
+  "last_model": "qwen/qwen3-4b-2507"
+}
