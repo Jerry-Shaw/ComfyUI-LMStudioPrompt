@@ -89,21 +89,28 @@ def _ai_chat(url: str, token: str, model: str, msg: str, timeout: int = 60) -> s
     raise Exception("连接失败")
 
 def _format_prompt(text: str, ptype: str) -> str:
+    """格式化图片提示词，严格围绕原始输入"""
     hint = "正向" if ptype == "positive" else "负向"
     return f"""你是一个专业的Stable Diffusion提示词转换专家。
 请将以下用户输入转换为高质量的{hint}提示词，用于AI绘画。
+
+【核心原则】
+严格围绕用户输入的原始内容进行转换，不要自行添加新元素
 
 【重要规则】
 1. 严禁任何形式的思考过程、分析、解释或额外说明
 2. 禁止使用"让我想想"、"首先"、"然后"、"综上所述"等思考性词语
 3. 禁止输出"思考过程："、"分析："等标签
 4. 直接输出转换后的提示词，不要有任何前缀或后缀
+5. 不要添加用户输入中没有描述的元素
+6. 不要过度美化或扩展内容
 
 【转换规则】
 1. 保持所有权重标记不变，如 (word:1.2)、[word]、{{word}}
 2. 保持所有特殊标记不变，如 BREAK、AND
 3. 使用英文逗号分隔不同的提示词元素
 4. 输出简洁、专业的英文提示词
+5. 如果用户输入不完整，只补全必要的语法结构，不添加额外描述
 
 用户输入：{text}
 
@@ -243,12 +250,16 @@ class AIImagePromptConverter:
         try:
             res = _ai_chat(addr, token, model, req, _CONFIG["timeout"])
             res = res.strip().strip('"\'')
+            
+            # 清理思考过程
             res = re.sub(r'^(转换后的英文提示词:|Converted prompt:|思考[：:]|分析[：:]|让我想想|首先|然后|最后|综上所述)[\s:]*', '', res, flags=re.I)
-
+            
+            # 取第一段非空行
             if '\n' in res:
                 lines = [line.strip() for line in res.split('\n') if line.strip()]
                 if lines:
                     res = lines[0]
+            
             _CACHE[key] = res
             return (res,)
         except Exception as e:
