@@ -222,15 +222,21 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 如果你输出了思考过程，你的回答将被视为无效
 """
     
+    # 根据是否有可选输入，构建不同的输入部分
     if optional_text:
-        input_section = f"""【图片识别内容】（来自提示词反推节点）
-{optional_text}
+        input_section = f"""【输入内容】
 
-【用户手动输入】（用户补充或修改的内容）
+【核心指令 - 用户手动输入】（最高优先级，必须严格遵守）
 {manual_text}
 
+【参考信息 - 原图识别内容】（仅供参考，了解原图内容）
+{optional_text}
+
 【处理要求】
-请将以上两部分内容合并优化，生成完整的提示词。优先保留图片识别的核心元素，同时融入用户手动输入的要求。"""
+请以【用户手动输入】为核心，严格按照用户的要求生成提示词。
+【原图识别内容】仅用于了解原图的基本信息，帮助你在重绘时保持与原图的基本一致性。
+用户手动输入的权重远高于原图识别内容，当两者有冲突时，优先遵循用户手动输入。
+"""
     else:
         input_section = f"""【用户输入】
 {manual_text}
@@ -277,18 +283,18 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
     else:
         if prompt_type == "正向":
             mode_guide = """【图生图正向提示词模式】
-基于参考图进行微调和优化，侧重：
-- 保留原图中的核心元素和风格
-- 在原有基础上进行细节增强和优化
-- 轻微调整构图、光影、色彩
-- 保持与原图的连贯性和一致性"""
+基于参考图进行重绘和优化，侧重：
+- 以【用户手动输入】为核心指导方向
+- 【原图识别内容】仅作为了解原图构成的参考
+- 优先满足用户手动输入的要求，当与原图冲突时，以用户要求为准
+- 在原图基础上进行修改和重绘，体现用户想要的改变"""
         else:
             mode_guide = """【图生图负向提示词模式】
 基于原图排除不需要的元素，侧重：
-- 避免出现原提示词中未提及的新元素
-- 排除会破坏原图结构的负面因素
-- 保持与原图的一致性
-- 只排除明确需要避免的问题"""
+- 以【用户手动输入】为核心，排除用户不想要的内容
+- 【原图识别内容】用于了解原图中存在什么，避免误删必要元素
+- 只排除用户手动输入中明确提到的问题
+- 保持与原图的基本结构，但去除用户不想要的元素"""
     
     if output_lang == "中文":
         lang_instruction = "必须使用中文输出"
@@ -304,7 +310,9 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 请将以下用户输入转换为高质量的{prompt_type}提示词，用于AI绘画。
 
 【核心原则】
-严格围绕用户输入的原始内容进行转换，不要自行添加新元素
+- 用户手动输入具有最高优先级，必须严格遵守
+- 原图识别内容仅作为参考背景，了解原图的基本构成
+- 当两者冲突时，以用户手动输入为准
 
 【生成模式】
 {mode_guide}
@@ -319,7 +327,8 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 5. 禁止输出任何解释性文字
 6. 直接输出最终的提示词，不要有任何前缀或后缀
 7. 不要添加用户输入中没有描述的元素
-8. {lang_instruction}
+8. 用户手动输入的优先级高于原图识别内容
+9. {lang_instruction}
 
 【输出格式】
 直接输出{output_format}，只输出提示词本身，不包含任何其他内容。
@@ -342,14 +351,19 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 """
     
     if optional_text:
-        input_section = f"""【图片识别内容】（来自提示词反推节点）
-{optional_text}
+        input_section = f"""【输入内容】
 
-【用户手动输入】（用户补充或修改的内容）
+【核心指令 - 用户手动输入】（最高优先级，必须严格遵守）
 {manual_text}
 
+【参考信息 - 原图识别内容】（仅供参考，了解原图内容）
+{optional_text}
+
 【处理要求】
-请将以上两部分内容合并优化，生成完整的视频提示词。优先保留图片识别的核心元素和动作，同时融入用户手动输入的要求。"""
+请以【用户手动输入】为核心，严格按照用户的要求生成视频提示词。
+【原图识别内容】仅用于了解原图的基本信息，帮助你在生成视频时保持与原图的基本关联性。
+用户手动输入的权重远高于原图识别内容，当两者有冲突时，优先遵循用户手动输入。
+"""
     else:
         input_section = f"""【用户输入】
 {manual_text}
@@ -391,10 +405,10 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
     else:
         mode_guide = """【图生视频模式说明】
 基于参考图生成视频，侧重：
-- 动作的流畅性和连续性
-- 主体在画面中的动态变化
-- 场景的微妙变化而非剧烈转变
-- 保持与参考图的一致性"""
+- 以【用户手动输入】为核心指导方向
+- 【原图识别内容】仅作为了解原图构成的参考
+- 优先满足用户手动输入的要求，当与原图冲突时，以用户要求为准
+- 在原图基础上生成视频内容，体现用户想要的改变"""
     
     if output_lang == "中文":
         lang_instruction = "必须使用中文输出"
@@ -405,6 +419,11 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 {thinking_ban}
 
 你是一个专业的WAN2.2视频生成提示词优化专家。你的任务是根据用户输入的简要描述，生成高质量的视频提示词。
+
+【核心原则】
+- 用户手动输入具有最高优先级，必须严格遵守
+- 原图识别内容仅作为参考背景，了解原图的基本构成
+- 当两者冲突时，以用户手动输入为准
 
 【核心任务】
 {mode_guide}
@@ -419,7 +438,8 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 5. 禁止输出任何解释性文字
 6. 直接输出最终的视频提示词，不要有任何前缀或后缀
 7. 输出内容为纯文本，不要使用markdown格式
-8. {lang_instruction}
+8. 用户手动输入的优先级高于原图识别内容
+9. {lang_instruction}
 
 【输出格式】
 直接输出视频提示词本身，只输出提示词，不包含任何其他内容。
