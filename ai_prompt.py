@@ -222,27 +222,57 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 如果你输出了思考过程，你的回答将被视为无效
 """
     
-    # 根据是否有可选输入，构建不同的输入部分
-    if optional_text:
-        input_section = f"""【输入内容】
-
-【核心指令 - 用户手动输入】（最高优先级，必须严格遵守）
-{manual_text}
-
-【参考信息 - 原图识别内容】（仅供参考，了解原图内容）
-{optional_text}
-
-【处理要求】
-请以【用户手动输入】为核心，严格按照用户的要求生成提示词。
-【原图识别内容】仅用于了解原图的基本信息，帮助你在重绘时保持与原图的基本一致性。
-用户手动输入的权重远高于原图识别内容，当两者有冲突时，优先遵循用户手动输入。
-"""
-    else:
-        input_section = f"""【用户输入】
-{manual_text}
-
-【处理要求】
-请根据用户输入生成提示词。"""
+    # 先清空，然后根据存在的内容动态构建
+    input_section_parts = []
+    
+    # 检查手工提示词是否存在
+    has_manual = manual_text and manual_text.strip()
+    has_optional = optional_text and optional_text.strip()
+    
+    if has_manual and has_optional:
+        # 两者都存在：手工提示词作为核心，图片描述作为参考
+        input_section_parts.append("【输入内容】")
+        input_section_parts.append("")
+        input_section_parts.append("以下是两部分需要综合的内容：")
+        input_section_parts.append("")
+        input_section_parts.append("1. 【用户手动输入】（最高优先级，必须严格遵守）：")
+        input_section_parts.append(manual_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("2. 【原图识别内容】（参考信息，了解原图的基础内容）：")
+        input_section_parts.append(optional_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【处理要求】")
+        input_section_parts.append("请综合以上两部分内容生成最终的提示词。")
+        input_section_parts.append("- 必须以【用户手动输入】为核心指导方向")
+        input_section_parts.append("- 参考【原图识别内容】了解原图的基本信息")
+        input_section_parts.append("- 将用户想要的内容与原图内容进行融合")
+        input_section_parts.append("- 最终提示词应该既体现用户的手动输入要求，又参考原图的基本元素")
+        input_section_parts.append("- 当两者冲突时，优先遵循用户手动输入")
+        input_section_parts.append("")
+        input_section_parts.append("示例：")
+        input_section_parts.append("如果用户手动输入是\"把头发改成红色\"，原图内容是\"一个穿蓝色裙子的女孩\"，那么最终提示词应该包含\"一个穿蓝色裙子的女孩，红色头发\"")
+        
+    elif has_manual and not has_optional:
+        # 只有手工提示词，没有图片描述
+        input_section_parts.append("【用户输入】")
+        input_section_parts.append(manual_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【处理要求】")
+        input_section_parts.append("请根据用户输入生成提示词。")
+        
+    elif not has_manual and has_optional:
+        # 只有图片描述，没有手工提示词
+        input_section_parts.append("【图片识别内容】")
+        input_section_parts.append(optional_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【处理要求】")
+        input_section_parts.append("请根据图片识别内容，生成高质量的提示词。")
+    
+    # 如果两者都为空，不应该走到这里，但为了安全还是处理一下
+    if not input_section_parts:
+        return None
+    
+    input_section = "\n".join(input_section_parts)
     
     if detail_level == "标准":
         strategy = """【处理策略：严格遵循原文】
@@ -284,17 +314,16 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
         if prompt_type == "正向":
             mode_guide = """【图生图正向提示词模式】
 基于参考图进行重绘和优化，侧重：
-- 以【用户手动输入】为核心指导方向
-- 【原图识别内容】仅作为了解原图构成的参考
-- 优先满足用户手动输入的要求，当与原图冲突时，以用户要求为准
-- 在原图基础上进行修改和重绘，体现用户想要的改变"""
+- 综合【用户手动输入】和【原图识别内容】
+- 用户手动输入是修改的方向，原图识别是基础内容
+- 保留原图的基本元素，同时应用用户的修改要求
+- 最终提示词应该融合两者的内容"""
         else:
             mode_guide = """【图生图负向提示词模式】
 基于原图排除不需要的元素，侧重：
-- 以【用户手动输入】为核心，排除用户不想要的内容
-- 【原图识别内容】用于了解原图中存在什么，避免误删必要元素
-- 只排除用户手动输入中明确提到的问题
-- 保持与原图的基本结构，但去除用户不想要的元素"""
+- 综合【用户手动输入】和【原图识别内容】
+- 用户手动输入指定要排除的元素，原图识别是基础内容
+- 保留原图的基本结构，去除用户不想要的元素"""
     
     if output_lang == "中文":
         lang_instruction = "必须使用中文输出"
@@ -310,9 +339,10 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 请将以下用户输入转换为高质量的{prompt_type}提示词，用于AI绘画。
 
 【核心原则】
-- 用户手动输入具有最高优先级，必须严格遵守
-- 原图识别内容仅作为参考背景，了解原图的基本构成
-- 当两者冲突时，以用户手动输入为准
+- 当同时提供用户手动输入和原图识别内容时，需要综合两者
+- 用户手动输入是修改和优化的方向，优先级最高
+- 原图识别内容是基础参考，保留原图的基本特征
+- 最终提示词应该融合用户想要的内容和原图的基础元素
 
 【生成模式】
 {mode_guide}
@@ -327,7 +357,7 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 5. 禁止输出任何解释性文字
 6. 直接输出最终的提示词，不要有任何前缀或后缀
 7. 不要添加用户输入中没有描述的元素
-8. 用户手动输入的优先级高于原图识别内容
+8. 用户手动输入的优先级高于原图识别内容，但两者都需要参考
 9. {lang_instruction}
 
 【输出格式】
@@ -350,27 +380,59 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 如果你输出了思考过程，你的回答将被视为无效
 """
     
-    if optional_text:
-        input_section = f"""【输入内容】
-
-【核心指令 - 用户手动输入】（最高优先级，必须严格遵守）
-{manual_text}
-
-【参考信息 - 原图识别内容】（仅供参考，了解原图内容）
-{optional_text}
-
-【处理要求】
-请以【用户手动输入】为核心，严格按照用户的要求生成视频提示词。
-【原图识别内容】仅用于了解原图的基本信息，帮助你在生成视频时保持与原图的基本关联性。
-用户手动输入的权重远高于原图识别内容，当两者有冲突时，优先遵循用户手动输入。
-"""
-    else:
-        input_section = f"""【用户输入】
-{manual_text}
-
-【处理要求】
-请根据用户输入生成视频提示词。"""
+    # 先清空，然后根据存在的内容动态构建
+    input_section_parts = []
     
+    # 检查手工提示词是否存在
+    has_manual = manual_text and manual_text.strip()
+    has_optional = optional_text and optional_text.strip()
+    
+    if has_manual and has_optional:
+        # 两者都存在：手工提示词作为核心，图片描述作为参考
+        input_section_parts.append("【输入内容】")
+        input_section_parts.append("")
+        input_section_parts.append("以下是两部分需要综合的内容：")
+        input_section_parts.append("")
+        input_section_parts.append("1. 【用户手动输入】（最高优先级，必须严格遵守）：")
+        input_section_parts.append(manual_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("2. 【原图识别内容】（参考信息，了解原图的基础内容）：")
+        input_section_parts.append(optional_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【处理要求】")
+        input_section_parts.append("请综合以上两部分内容生成最终的视频提示词。")
+        input_section_parts.append("- 必须以【用户手动输入】为核心指导方向")
+        input_section_parts.append("- 参考【原图识别内容】了解原图的基本信息")
+        input_section_parts.append("- 将用户想要的内容与原图内容进行融合")
+        input_section_parts.append("- 最终提示词应该既体现用户的手动输入要求，又参考原图的基本元素")
+        input_section_parts.append("- 当两者冲突时，优先遵循用户手动输入")
+        input_section_parts.append("")
+        input_section_parts.append("示例：")
+        input_section_parts.append("如果用户手动输入是\"让角色跳起来\"，原图内容是\"一个穿裙子的小女孩站着\"，那么最终提示词应该包含\"一个穿裙子的小女孩，跳起来的动作\"")
+        
+    elif has_manual and not has_optional:
+        # 只有手工提示词，没有图片描述
+        input_section_parts.append("【用户输入】")
+        input_section_parts.append(manual_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【处理要求】")
+        input_section_parts.append("请根据用户输入生成视频提示词。")
+        
+    elif not has_manual and has_optional:
+        # 只有图片描述，没有手工提示词
+        input_section_parts.append("【图片识别内容】")
+        input_section_parts.append(optional_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【处理要求】")
+        input_section_parts.append("请根据图片识别内容，生成高质量的视频提示词。")
+    
+    # 如果两者都为空，不应该走到这里，但为了安全还是处理一下
+    if not input_section_parts:
+        return None
+    
+    input_section = "\n".join(input_section_parts)
+    
+    # 根据详细程度定义不同的处理策略
     if detail_level == "标准":
         strategy = """【处理策略：严格遵循原文】
 - 只做必要的语法修正和错别字修正
@@ -385,7 +447,7 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 不添加原文完全未提及的新场景元素
 - 动作描述可适当细化，但不改变原意
 - 输出长度约为原文的1.5-2倍"""
-    else:
+    else:  # 极详细
         strategy = """【处理策略：全面丰富（电影级）】
 - 可充分发挥想象力，对原文进行全方位的丰富和扩展
 - 添加电影级的视觉细节：光影、质感、色彩、构图
@@ -395,6 +457,7 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 营造沉浸式的情绪氛围
 - 输出长度不限，追求极致细节"""
     
+    # 根据生成模式区分
     if mode == "文生视频":
         mode_guide = """【文生视频模式说明】
 从零构建视觉场景，侧重：
@@ -402,14 +465,15 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 主体形象的详细刻画
 - 动作的完整过程描述
 - 时间流逝和变化过程"""
-    else:
+    else:  # 图生视频
         mode_guide = """【图生视频模式说明】
 基于参考图生成视频，侧重：
-- 以【用户手动输入】为核心指导方向
-- 【原图识别内容】仅作为了解原图构成的参考
-- 优先满足用户手动输入的要求，当与原图冲突时，以用户要求为准
-- 在原图基础上生成视频内容，体现用户想要的改变"""
+- 综合【用户手动输入】和【原图识别内容】
+- 用户手动输入是修改的方向，原图识别是基础内容
+- 保留原图的基本元素，同时应用用户的修改要求
+- 最终提示词应该融合两者的内容"""
     
+    # 根据输出语言设置
     if output_lang == "中文":
         lang_instruction = "必须使用中文输出"
     else:
@@ -421,9 +485,10 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 你是一个专业的WAN2.2视频生成提示词优化专家。你的任务是根据用户输入的简要描述，生成高质量的视频提示词。
 
 【核心原则】
-- 用户手动输入具有最高优先级，必须严格遵守
-- 原图识别内容仅作为参考背景，了解原图的基本构成
-- 当两者冲突时，以用户手动输入为准
+- 当同时提供用户手动输入和原图识别内容时，需要综合两者
+- 用户手动输入是修改和优化的方向，优先级最高
+- 原图识别内容是基础参考，保留原图的基本特征
+- 最终提示词应该融合用户想要的内容和原图的基础元素
 
 【核心任务】
 {mode_guide}
@@ -438,7 +503,7 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 5. 禁止输出任何解释性文字
 6. 直接输出最终的视频提示词，不要有任何前缀或后缀
 7. 输出内容为纯文本，不要使用markdown格式
-8. 用户手动输入的优先级高于原图识别内容
+8. 用户手动输入的优先级高于原图识别内容，但两者都需要参考
 9. {lang_instruction}
 
 【输出格式】
