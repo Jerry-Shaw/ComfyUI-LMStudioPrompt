@@ -210,7 +210,7 @@ def _ai_chat(url: str, token: str, model: str, msg: str, timeout: int = 60, imag
     raise Exception("连接失败")
 
 def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail_level: str, prompt_type: str, output_lang: str) -> str:
-    """格式化图片提示词"""
+    """格式化图片提示词 - 支持参考图融合模式"""
     header = "【绝对指令】直接输出最终结果，严禁任何思考过程、分析或解释。"
     
     thinking_ban = """
@@ -222,38 +222,73 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 如果你输出了思考过程，你的回答将被视为无效
 """
     
-    # 先清空，然后根据存在的内容动态构建
-    input_section_parts = []
-    
-    # 检查手工提示词是否存在
+    # 检查内容是否存在
     has_manual = manual_text and manual_text.strip()
     has_optional = optional_text and optional_text.strip()
     
-    if has_manual and has_optional:
-        # 两者都存在：手工提示词作为核心，图片描述作为参考
+    input_section_parts = []
+    
+    # 判断是否为两图融合模式（两者都是完整的场景描述）
+    is_fusion_mode = has_manual and has_optional and len(manual_text) > 30 and len(optional_text) > 30
+    
+    if is_fusion_mode:
+        # ========== 两图融合模式：以manual为参考图，将optional的元素融合进去 ==========
+        input_section_parts.append("【输入内容 - 参考图融合模式】")
+        input_section_parts.append("")
+        input_section_parts.append("请将【原图内容】中的重要元素，融合到【参考图内容】的场景中。")
+        input_section_parts.append("")
+        input_section_parts.append("【参考图内容】（作为基础场景，保持其整体结构和风格）：")
+        input_section_parts.append(manual_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【原图内容】（提取其中的关键元素，融合到参考图中）：")
+        input_section_parts.append(optional_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【融合规则】")
+        input_section_parts.append("1. 以【参考图内容】为基础框架，保留其核心场景、构图、光线、氛围")
+        input_section_parts.append("2. 从【原图内容】中提取关键元素，并替换/融合到参考图中")
+        input_section_parts.append("3. 元素提取优先级：人物 > 主体物体 > 背景元素 > 细节装饰")
+        input_section_parts.append("4. 如果【原图内容】有人物，则用原图的人物替换参考图中的人物")
+        input_section_parts.append("5. 如果【原图内容】有特殊物体/道具，则将这些物体融入参考图的合适位置")
+        input_section_parts.append("6. 如果【原图内容】有场景元素（如建筑、植被、光线），则将这些元素融入参考图的背景或环境中")
+        input_section_parts.append("7. 融合后必须保持画面的逻辑合理性和视觉和谐")
+        input_section_parts.append("8. 输出一个完整的提示词，描述融合后的最终画面")
+        input_section_parts.append("")
+        input_section_parts.append("【融合示例1 - 人物替换】")
+        input_section_parts.append("参考图: '一个女孩站在沙滩上，阳光明媚，海浪拍打岸边'")
+        input_section_parts.append("原图: '一个戴帽子的男孩在森林里看书'")
+        input_section_parts.append("融合结果: '一个戴帽子的男孩站在沙滩上，阳光明媚，海浪拍打岸边，男孩手里拿着一本书'")
+        input_section_parts.append("")
+        input_section_parts.append("【融合示例2 - 场景融合】")
+        input_section_parts.append("参考图: '三个人在公园里散步，秋季，金黄色树叶'")
+        input_section_parts.append("原图: '传统的中国山村，白墙黑瓦，晾晒的农作物'")
+        input_section_parts.append("融合结果: '三个人在中国传统山村的石板路上散步，背景是白墙黑瓦的民居，晾晒架上挂着红辣椒和玉米，秋季的暖阳洒在山村中，金黄色的树叶点缀其间'")
+        
+    elif has_manual and has_optional:
+        # ========== 原有模式：手动输入修改原图 ==========
         input_section_parts.append("【输入内容】")
         input_section_parts.append("")
         input_section_parts.append("以下是两部分需要综合的内容：")
         input_section_parts.append("")
-        input_section_parts.append("1. 【用户手动输入】（最高优先级，必须严格遵守）：")
+        input_section_parts.append("1. 【用户修改指令】（最高优先级，必须严格遵守）：")
         input_section_parts.append(manual_text.strip())
         input_section_parts.append("")
-        input_section_parts.append("2. 【原图识别内容】（参考信息，了解原图的基础内容）：")
+        input_section_parts.append("2. 【原图内容】（需要被修改的基础图片）：")
         input_section_parts.append(optional_text.strip())
         input_section_parts.append("")
         input_section_parts.append("【处理要求】")
-        input_section_parts.append("请综合以上两部分内容生成最终的提示词。")
-        input_section_parts.append("- 必须以【用户手动输入】为核心指导方向")
-        input_section_parts.append("- 参考【原图识别内容】了解原图的基本信息")
-        input_section_parts.append("- 将用户想要的内容与原图内容进行融合")
-        input_section_parts.append("- 最终提示词应该既体现用户的手动输入要求，又参考原图的基本元素")
-        input_section_parts.append("- 当两者冲突时，优先遵循用户手动输入")
+        input_section_parts.append("请根据【用户修改指令】修改【原图内容】，生成最终的提示词。")
+        input_section_parts.append("- 以【原图内容】为基础")
+        input_section_parts.append("- 应用【用户修改指令】中的所有修改要求")
+        input_section_parts.append("- 保持原图中没有被要求修改的部分不变")
+        input_section_parts.append("- 当两者冲突时，优先遵循用户修改指令")
         input_section_parts.append("")
         input_section_parts.append("示例：")
-        input_section_parts.append("如果用户手动输入是\"把头发改成红色\"，原图内容是\"一个穿蓝色裙子的女孩\"，那么最终提示词应该包含\"一个穿蓝色裙子的女孩，红色头发\"")
+        input_section_parts.append("用户修改指令: \"把头发改成红色\"")
+        input_section_parts.append("原图内容: \"一个穿蓝色裙子的女孩\"")
+        input_section_parts.append("最终提示词: \"一个穿蓝色裙子的女孩，红色头发\"")
         
     elif has_manual and not has_optional:
-        # 只有手工提示词，没有图片描述
+        # ========== 只有手工提示词 ==========
         input_section_parts.append("【用户输入】")
         input_section_parts.append(manual_text.strip())
         input_section_parts.append("")
@@ -261,14 +296,13 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
         input_section_parts.append("请根据用户输入生成提示词。")
         
     elif not has_manual and has_optional:
-        # 只有图片描述，没有手工提示词
+        # ========== 只有图片描述 ==========
         input_section_parts.append("【图片识别内容】")
         input_section_parts.append(optional_text.strip())
         input_section_parts.append("")
         input_section_parts.append("【处理要求】")
         input_section_parts.append("请根据图片识别内容，生成高质量的提示词。")
     
-    # 如果两者都为空，不应该走到这里，但为了安全还是处理一下
     if not input_section_parts:
         return None
     
@@ -277,7 +311,7 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
     if detail_level == "标准":
         strategy = """【处理策略：严格遵循原文】
 - 只做必要的语法修正和错别字修正
-- 补全描述中明显缺失的关键元素（如主体缺失、风格缺失）
+- 补全描述中明显缺失的关键元素
 - 严禁自行添加原文没有的场景、环境、细节
 - 保持原提示词的核心内容和风格不变
 - 输出长度与原文相近"""
@@ -296,7 +330,16 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 追求电影级的画面效果
 - 输出长度不限，追求极致细节"""
     
-    if mode == "文生图":
+    # 根据模式调整指引
+    if is_fusion_mode:
+        mode_guide = """【参考图融合模式说明】
+你的任务是将【原图】中的关键元素融合到【参考图】中：
+- 以【参考图】为基础场景，保持其整体结构
+- 从【原图】中提取人物、物体、场景元素
+- 用原图的人物替换参考图中的人物（如果存在）
+- 将原图的其他元素自然融入参考图的合适位置
+- 输出一个完整、连贯的融合后场景描述"""
+    elif mode == "文生图":
         if prompt_type == "正向":
             mode_guide = """【文生图正向提示词模式】
 从零构建画面，侧重：
@@ -332,6 +375,19 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
         lang_instruction = "必须使用英文输出"
         output_format = "输出英文提示词"
     
+    # 针对融合模式的额外强调
+    extra_emphasis = ""
+    if is_fusion_mode:
+        extra_emphasis = """
+【特别强调 - 参考图融合】
+- 【参考图内容】是基础场景，必须保持其整体结构和风格
+- 从【原图内容】中提取元素并融合到参考图中
+- 如果原图有人物，必须用原图的人物替换参考图中的人物
+- 如果原图有特殊物体/道具，将它们融入参考图的合适位置
+- 如果原图有场景元素，将它们融入参考图的背景中
+- 融合后的画面必须看起来自然、合理、和谐
+"""
+    
     return f"""{header}
 {thinking_ban}
 
@@ -339,14 +395,14 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 请将以下用户输入转换为高质量的{prompt_type}提示词，用于AI绘画。
 
 【核心原则】
-- 当同时提供用户手动输入和原图识别内容时，需要综合两者
-- 用户手动输入是修改和优化的方向，优先级最高
-- 原图识别内容是基础参考，保留原图的基本特征
-- 最终提示词应该融合用户想要的内容和原图的基础元素
+- 以【参考图内容】为基础框架，从【原图内容】中提取元素进行融合
+- 原图中的人物优先级最高，用于替换参考图中的人物
+- 原图中的物体和场景元素作为补充，融入参考图
+- 融合后的画面应该看起来像一张完整、和谐的照片
 
 【生成模式】
 {mode_guide}
-
+{extra_emphasis}
 {strategy}
 
 【最重要规则 - 必须绝对遵守】
@@ -356,9 +412,7 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 4. 禁止输出任何标签，如"思考过程："、"分析："、"转换后的提示词："、"结果："等
 5. 禁止输出任何解释性文字
 6. 直接输出最终的提示词，不要有任何前缀或后缀
-7. 不要添加用户输入中没有描述的元素
-8. 用户手动输入的优先级高于原图识别内容，但两者都需要参考
-9. {lang_instruction}
+7. {lang_instruction}
 
 【输出格式】
 直接输出{output_format}，只输出提示词本身，不包含任何其他内容。
@@ -368,7 +422,7 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 直接输出提示词："""
 
 def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail_level: str, output_lang: str) -> str:
-    """格式化视频提示词"""
+    """格式化视频提示词 - 支持参考图融合模式"""
     header = "【绝对指令】直接输出最终结果，严禁任何思考过程、分析或解释。"
     
     thinking_ban = """
@@ -380,38 +434,78 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 如果你输出了思考过程，你的回答将被视为无效
 """
     
-    # 先清空，然后根据存在的内容动态构建
-    input_section_parts = []
-    
-    # 检查手工提示词是否存在
+    # 检查内容是否存在
     has_manual = manual_text and manual_text.strip()
     has_optional = optional_text and optional_text.strip()
     
-    if has_manual and has_optional:
-        # 两者都存在：手工提示词作为核心，图片描述作为参考
+    input_section_parts = []
+    
+    # 判断是否为两图融合模式（两者都是完整的场景描述）
+    is_fusion_mode = has_manual and has_optional and len(manual_text) > 30 and len(optional_text) > 30
+    
+    if is_fusion_mode:
+        # ========== 两图融合模式：以manual为参考图，将optional的元素融合进去 ==========
+        input_section_parts.append("【输入内容 - 参考图融合模式】")
+        input_section_parts.append("")
+        input_section_parts.append("请将【原图内容】中的重要元素，融合到【参考图内容】的视频场景中。")
+        input_section_parts.append("")
+        input_section_parts.append("【参考图内容】（作为基础视频场景，保持其整体结构、动作和风格）：")
+        input_section_parts.append(manual_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【原图内容】（提取其中的关键元素，融合到参考视频中）：")
+        input_section_parts.append(optional_text.strip())
+        input_section_parts.append("")
+        input_section_parts.append("【融合规则】")
+        input_section_parts.append("1. 以【参考图内容】为基础框架，保留其核心场景、动作、光线、氛围和运动轨迹")
+        input_section_parts.append("2. 从【原图内容】中提取关键元素，并替换/融合到参考视频中")
+        input_section_parts.append("3. 元素提取优先级：人物动作 > 主体物体 > 背景元素 > 细节装饰")
+        input_section_parts.append("4. 如果【原图内容】有人物，则用原图的人物替换参考视频中的人物（保持参考视频的动作和运动）")
+        input_section_parts.append("5. 如果【原图内容】有特殊物体/道具，则将这些物体融入参考视频的合适位置")
+        input_section_parts.append("6. 如果【原图内容】有场景元素（如建筑、植被、光线），则将这些元素融入参考视频的背景或环境中")
+        input_section_parts.append("7. 融合后必须保持视频的逻辑合理性、视觉和谐以及运动的连贯性")
+        input_section_parts.append("8. 输出一个完整的视频提示词，描述融合后的最终视频画面和动作")
+        input_section_parts.append("")
+        input_section_parts.append("【融合示例1 - 人物替换】")
+        input_section_parts.append("参考视频: '一个女孩在沙滩上奔跑，阳光明媚，海浪拍打岸边'")
+        input_section_parts.append("原图: '一个戴帽子的男孩在森林里看书'")
+        input_section_parts.append("融合结果: '一个戴帽子的男孩在沙滩上奔跑，阳光明媚，海浪拍打岸边，男孩手里拿着一本书，书页随风翻动'")
+        input_section_parts.append("")
+        input_section_parts.append("【融合示例2 - 场景融合】")
+        input_section_parts.append("参考视频: '三个人在公园里散步，秋季，金黄色树叶飘落'")
+        input_section_parts.append("原图: '传统的中国山村，白墙黑瓦，晾晒的农作物'")
+        input_section_parts.append("融合结果: '三个人在中国传统山村的石板路上散步，背景是白墙黑瓦的民居，晾晒架上挂着红辣椒和玉米，秋季的暖阳洒在山村中，金黄色的树叶随风飘落在石板路上'")
+        input_section_parts.append("")
+        input_section_parts.append("【融合示例3 - 动作保持】")
+        input_section_parts.append("参考视频: '一只猫在草地上跳跃，追逐蝴蝶'")
+        input_section_parts.append("原图: '一只金色的狗'")
+        input_section_parts.append("融合结果: '一只金色的狗在草地上跳跃，追逐蝴蝶，动作敏捷，毛发在阳光下闪闪发光'")
+        
+    elif has_manual and has_optional:
+        # ========== 原有模式：手动输入修改原图 ==========
         input_section_parts.append("【输入内容】")
         input_section_parts.append("")
         input_section_parts.append("以下是两部分需要综合的内容：")
         input_section_parts.append("")
-        input_section_parts.append("1. 【用户手动输入】（最高优先级，必须严格遵守）：")
+        input_section_parts.append("1. 【用户修改指令】（最高优先级，必须严格遵守）：")
         input_section_parts.append(manual_text.strip())
         input_section_parts.append("")
-        input_section_parts.append("2. 【原图识别内容】（参考信息，了解原图的基础内容）：")
+        input_section_parts.append("2. 【原图内容】（需要被修改的基础图片）：")
         input_section_parts.append(optional_text.strip())
         input_section_parts.append("")
         input_section_parts.append("【处理要求】")
-        input_section_parts.append("请综合以上两部分内容生成最终的视频提示词。")
-        input_section_parts.append("- 必须以【用户手动输入】为核心指导方向")
-        input_section_parts.append("- 参考【原图识别内容】了解原图的基本信息")
-        input_section_parts.append("- 将用户想要的内容与原图内容进行融合")
-        input_section_parts.append("- 最终提示词应该既体现用户的手动输入要求，又参考原图的基本元素")
-        input_section_parts.append("- 当两者冲突时，优先遵循用户手动输入")
+        input_section_parts.append("请根据【用户修改指令】修改【原图内容】，生成最终的视频提示词。")
+        input_section_parts.append("- 以【原图内容】为基础")
+        input_section_parts.append("- 应用【用户修改指令】中的所有修改要求")
+        input_section_parts.append("- 保持原图中没有被要求修改的部分不变")
+        input_section_parts.append("- 当两者冲突时，优先遵循用户修改指令")
         input_section_parts.append("")
         input_section_parts.append("示例：")
-        input_section_parts.append("如果用户手动输入是\"让角色跳起来\"，原图内容是\"一个穿裙子的小女孩站着\"，那么最终提示词应该包含\"一个穿裙子的小女孩，跳起来的动作\"")
+        input_section_parts.append("用户修改指令: \"把奔跑改成跳跃\"")
+        input_section_parts.append("原图内容: \"一个女孩在草地上奔跑\"")
+        input_section_parts.append("最终提示词: \"一个女孩在草地上跳跃\"")
         
     elif has_manual and not has_optional:
-        # 只有手工提示词，没有图片描述
+        # ========== 只有手工提示词 ==========
         input_section_parts.append("【用户输入】")
         input_section_parts.append(manual_text.strip())
         input_section_parts.append("")
@@ -419,14 +513,13 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
         input_section_parts.append("请根据用户输入生成视频提示词。")
         
     elif not has_manual and has_optional:
-        # 只有图片描述，没有手工提示词
+        # ========== 只有图片描述 ==========
         input_section_parts.append("【图片识别内容】")
         input_section_parts.append(optional_text.strip())
         input_section_parts.append("")
         input_section_parts.append("【处理要求】")
         input_section_parts.append("请根据图片识别内容，生成高质量的视频提示词。")
     
-    # 如果两者都为空，不应该走到这里，但为了安全还是处理一下
     if not input_section_parts:
         return None
     
@@ -457,8 +550,16 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 - 营造沉浸式的情绪氛围
 - 输出长度不限，追求极致细节"""
     
-    # 根据生成模式区分
-    if mode == "文生视频":
+    # 根据融合模式区分
+    if is_fusion_mode:
+        mode_guide = """【参考图融合模式说明】
+你的任务是将【原图】中的关键元素融合到【参考视频】中：
+- 以【参考视频】为基础场景，保持其整体结构、动作和运动轨迹
+- 从【原图】中提取人物、物体、场景元素
+- 用原图的人物替换参考视频中的人物（保持参考视频的动作）
+- 将原图的其他元素自然融入参考视频的合适位置
+- 输出一个完整、连贯的融合后视频场景描述"""
+    elif mode == "文生视频":
         mode_guide = """【文生视频模式说明】
 从零构建视觉场景，侧重：
 - 完整的场景设定和环境构建
@@ -479,20 +580,34 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
     else:
         lang_instruction = "必须使用英文输出"
     
+    # 针对融合模式的额外强调
+    extra_emphasis = ""
+    if is_fusion_mode:
+        extra_emphasis = """
+【特别强调 - 参考视频融合】
+- 【参考图内容】是基础视频场景，必须保持其整体结构、动作和运动风格
+- 从【原图内容】中提取元素并融合到参考视频中
+- 如果原图有人物，必须用原图的人物替换参考视频中的人物（保持参考视频的动作）
+- 如果原图有特殊物体/道具，将它们融入参考视频的合适位置
+- 如果原图有场景元素，将它们融入参考视频的背景中
+- 融合后的视频必须看起来自然、合理、运动连贯
+- 保持参考视频的核心动作和动态效果不变
+"""
+    
     return f"""{header}
 {thinking_ban}
 
 你是一个专业的WAN2.2视频生成提示词优化专家。你的任务是根据用户输入的简要描述，生成高质量的视频提示词。
 
 【核心原则】
-- 当同时提供用户手动输入和原图识别内容时，需要综合两者
-- 用户手动输入是修改和优化的方向，优先级最高
-- 原图识别内容是基础参考，保留原图的基本特征
-- 最终提示词应该融合用户想要的内容和原图的基础元素
+- 以【参考图内容】为基础框架，从【原图内容】中提取元素进行融合
+- 原图中的人物优先级最高，用于替换参考视频中的人物（保持动作）
+- 原图中的物体和场景元素作为补充，融入参考视频
+- 融合后的视频应该看起来像一段完整、连贯、自然的视频
 
 【核心任务】
 {mode_guide}
-
+{extra_emphasis}
 {strategy}
 
 【最重要规则 - 必须绝对遵守】
@@ -503,8 +618,7 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
 5. 禁止输出任何解释性文字
 6. 直接输出最终的视频提示词，不要有任何前缀或后缀
 7. 输出内容为纯文本，不要使用markdown格式
-8. 用户手动输入的优先级高于原图识别内容，但两者都需要参考
-9. {lang_instruction}
+8. {lang_instruction}
 
 【输出格式】
 直接输出视频提示词本身，只输出提示词，不包含任何其他内容。
