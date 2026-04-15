@@ -63,7 +63,7 @@ def _clean_thinking_response(text: str) -> str:
     for line in lines:
         line_stripped = line.strip()
         
-        if re.match(r'^(Thinking Process:|思考过程：|【思考】|\[思考\]|让我想想|我先|我需要|好的，|好，|明白了|理解了|收到|行，|嗯，|首先|第一步|然后|接着|接下来|之后|最后|综上所述|总结|我认为|我觉得|分析：|思考：|推理：|解读：|Let me think|First|Then|Next|Finally|I think|Analysis:|Reasoning:)', line_stripped, re.IGNORECASE):
+        if re.match(r'^(Thinking Process:|思考过程：|【思考】|\[思考\]|让我想想|我先|我需要|好的，|好，|明白了|理解了|收到|行，|嗯，|综上所述|总结|我认为|我觉得|分析：|思考：|推理：|解读：|Let me think|First|Then|Next|Finally|I think|Analysis:|Reasoning:)', line_stripped, re.IGNORECASE):
             continue
         
         cleaned_lines.append(line)
@@ -268,8 +268,14 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
     
     # 输出格式
     lines.append("【输出格式 - 必须严格遵守】")
-    lines.append("[POSITIVE]正向提示词（多个关键词用英文逗号分隔）")
-    lines.append("[NEGATIVE]负向提示词（多个关键词用英文逗号分隔）")
+
+    if output_lang == "中文":
+        lines.append("[POSITIVE]正向提示词（多个关键词用英文逗号分隔，必须使用中文）")
+        lines.append("[NEGATIVE]负向提示词（多个关键词用英文逗号分隔，必须使用中文）")
+    else:
+        lines.append("[POSITIVE]positive prompt (comma separated, must use English)")
+        lines.append("[NEGATIVE]negative prompt (comma separated, must use English)")
+
     lines.append("")
     lines.append("【格式示例】")
     if output_lang == "中文":
@@ -333,6 +339,7 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
     if output_lang == "中文":
         lang_inst = "使用中文输出"
         mode_text = "文生视频" if mode == "文生视频" else "图生视频"
+        keyword_lang = "必须使用中文"
         
         # 基于文章的美学控制知识库
         knowledge = """【视觉元素知识库 - 按需选用】
@@ -350,6 +357,7 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
     else:
         lang_inst = "use English output"
         mode_text = "text-to-video" if mode == "文生视频" else "image-to-video"
+        keyword_lang = "must use English"
         
         knowledge = """【Visual Elements Knowledge Base】
 
@@ -375,7 +383,7 @@ Effects: slow motion, motion blur, lens flare, tilt-shift, time-lapse"""
     lines.append("【核心方法论】")
     lines.append("提示词 = 关键词组合 + 详细场景描述")
     lines.append("")
-    lines.append("关键词组合：从知识库中选择10-20个关键词，用英文逗号分隔，服务于统一的艺术目标")
+    lines.append(f"关键词组合：从知识库中选择10-20个关键词，用英文逗号分隔，{keyword_lang}，服务于统一的艺术目标")
     lines.append("")
     lines.append("详细场景描述结构：")
     lines.append("【首帧】描述画面起始状态")
@@ -405,9 +413,9 @@ Effects: slow motion, motion blur, lens flare, tilt-shift, time-lapse"""
     
     # 输出格式
     lines.append("【输出格式】")
-    lines.append("[POSITIVE]关键词（英文逗号分隔，10-20个）")
-    lines.append("[NEGATIVE]负向关键词（英文逗号分隔，8-15个）")
-    lines.append("[DESCRIPTION]详细场景描述（按上述结构组织）")
+    lines.append(f"[POSITIVE]关键词（英文逗号分隔，10-20个，{keyword_lang}）")
+    lines.append(f"[NEGATIVE]负向关键词（英文逗号分隔，8-15个，{keyword_lang}）")
+    lines.append(f"[DESCRIPTION]详细场景描述（按上述结构组织，必须使用{output_lang}）")
     lines.append("")
     lines.append("【格式示例】")
     if output_lang == "中文":
