@@ -326,7 +326,7 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 
 
 def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail_level: str, output_lang: str) -> str:
-    """格式化视频提示词 - 同时输出正向和负向提示词，支持叙事连贯性"""
+    """格式化视频提示词 - 基于文章方法论，强化叙事逻辑"""
     has_manual = manual_text and manual_text.strip()
     has_optional = optional_text and optional_text.strip()
     
@@ -334,30 +334,29 @@ def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail
         lang_inst = "使用中文输出"
         mode_text = "文生视频" if mode == "文生视频" else "图生视频"
         
-        # 中文知识库
-        knowledge = """【美学控制知识库 - 按需选用，关键词请使用中文】
+        # 基于文章的美学控制知识库
+        knowledge = """【视觉元素知识库 - 按需选用】
 
-光源: 日光、人工光、月光、实用光、火光、荧光、阴天光、混合光、晴天光
-光线: 柔光、硬光、高对比度、侧光、底光、低对比度、边缘光、剪影、背光、逆光
-时间: 白天、夜晚、日出、日落、黎明、黄昏、黄金时刻
+光源类型: 日光、人工光、月光、实用光、火光、荧光、阴天光、混合光、晴天光
+光线类型: 柔光、硬光、高对比度、侧光、底光、低对比度、边缘光、剪影、背光、逆光
+时间段: 白天、夜晚、日出、日落、黎明、黄昏、黄金时刻
 景别: 特写、近景、中景、中近景、全景、远景、广角
 构图: 中心构图、平衡构图、左侧构图、右侧构图、对称构图、短边构图
-镜头: 广角镜头、中焦距镜头、长焦镜头、鱼眼镜头
-运镜: 固定镜头、推进镜头、拉远镜头、上摇镜头、下摇镜头、左移镜头、右移镜头、手持镜头、跟随镜头、环绕镜头
-情绪: 愤怒、恐惧、高兴、悲伤、惊讶、沉思、平静、焦虑
-风格: 写实风格、电影感风格、纪录片风格、像素风格、3D风格、二次元风格、印象派风格、油画风格
-特效: 慢动作、动态模糊、镜头光晕、移轴效果、延时拍摄"""
+镜头焦段: 广角、中焦距、长焦、鱼眼
+镜头运动: 固定、推进、拉远、上摇、下摇、左移、右移、手持、跟随、环绕
+角色情绪: 愤怒、恐惧、高兴、悲伤、惊讶、沉思、平静、焦虑
+视觉风格: 写实、电影感、纪录片、像素、3D、二次元、印象派、油画
+特效: 慢动作、动态模糊、镜头光晕、移轴、延时"""
     else:
         lang_inst = "use English output"
         mode_text = "text-to-video" if mode == "文生视频" else "image-to-video"
         
-        # 英文知识库
-        knowledge = """【Aesthetics Control Knowledge Base - Use keywords in English】
+        knowledge = """【Visual Elements Knowledge Base】
 
 Light Source: daylight, artificial light, moonlight, practical light, firelight, fluorescent, overcast, mixed light, sunlight
 Lighting: soft lighting, hard lighting, high contrast, side lighting, underlighting, low contrast, rim lighting, silhouette, backlighting
 Time: daytime, night, sunrise, sunset, dawn, dusk, golden hour
-Shot Size: close-up, medium close-up, medium shot, medium wide shot, wide shot, extreme wide shot, establishing shot
+Shot Size: close-up, medium close-up, medium shot, medium wide shot, wide shot, extreme wide shot
 Composition: center composition, balanced composition, left-heavy, right-heavy, symmetrical, short-side
 Lens: wide-angle, medium lens, telephoto, fisheye
 Camera Movement: static, push-in, pull-back, pan, tilt, tracking, handheld, follow, orbit
@@ -367,58 +366,58 @@ Effects: slow motion, motion blur, lens flare, tilt-shift, time-lapse"""
     
     lines = []
     lines.append("【指令】直接输出正向和负向提示词，不要有任何思考过程、分析或解释。")
-    lines.append("严禁使用任何Markdown格式（不要使用**粗体**、*斜体*、`代码块`等）")
+    lines.append("严禁使用任何Markdown格式。")
     lines.append("")
-    lines.append(f"你是一个专业的AI视频提示词专家。{lang_inst}，{mode_text}模式。")
-    lines.append("")
-    
-    # 核心任务
-    lines.append("【核心任务】")
-    lines.append("第一步：全面理解【手工提示词】中的所有内容")
-    lines.append("第二步：结合【原图描述】作为当前首帧基础")
-    lines.append("第三步：创作本段视频的最佳正向和负向提示词，确保叙事连贯性")
+    lines.append(f"你是一个专业的视频提示词专家。{lang_inst}，{mode_text}模式。")
     lines.append("")
     
-    # 理解指导
-    lines.append("【理解手工提示词要点】")
-    lines.append("- 提取核心创作意图：想要表达什么？发生什么变化？")
-    lines.append("- 识别关键元素：角色、动作、场景、情绪、时间、光线")
-    lines.append("- 理解叙事脉络：角色状态、情节发展、时空关系")
-    lines.append("- 注意连贯性要求：首尾帧衔接、角色一致性")
+    # 核心方法论（基于文章）
+    lines.append("【核心方法论】")
+    lines.append("提示词 = 关键词组合 + 详细场景描述")
+    lines.append("")
+    lines.append("关键词组合：从知识库中选择10-20个关键词，用英文逗号分隔，服务于统一的艺术目标")
+    lines.append("")
+    lines.append("详细场景描述结构：")
+    lines.append("【首帧】描述画面起始状态")
+    lines.append("【镜头运动】描述镜头如何运动")
+    lines.append("【动作】按时间顺序描述动作序列（用'先...然后...接着...最后...'连接）")
+    lines.append("【场景扩展】描述环境变化和细节")
+    lines.append("【转场】描述如何过渡到下一段（如需要）")
     lines.append("")
     
-    # 创作指导
-    lines.append("【创作本段视频要点】")
-    lines.append("- 以【原图描述】为首帧基础，确保画面连贯")
-    lines.append("- 根据理解的意图，设计合理的运动、运镜和转场")
-    lines.append("- 从知识库中选择合适的美学控制关键词")
-    lines.append("- 如手工提示词有明确要求，优先遵循")
+    # 叙事逻辑强化
+    lines.append("【叙事逻辑规则 - 必须遵守】")
     lines.append("")
-    
-    # 负向提示词指导
-    lines.append("【负向提示词创作要点】")
-    lines.append("- 基于对【原图描述】和【手工提示词】的理解，排除画面中不应出现的元素")
-    lines.append("- 排除与创作意图冲突的元素（如：想要宁静氛围则排除嘈杂、混乱）")
-    lines.append("- 排除常见的画质问题：模糊、低分辨率、噪点、抖动")
-    lines.append("- 排除常见的结构问题：畸形的手、多余的手指、扭曲的脸、不自然的动作")
-    lines.append("- 排除不想要的内容：水印、文字、标志、多余的人物或物体")
+    lines.append("1. 时间顺序：动作必须按发生先后描述")
+    lines.append("   - 使用：'先'、'然后'、'接着'、'紧接着'、'之后'、'最后'")
+    lines.append("")
+    lines.append("2. 因果关系：动作之间的因果必须明确")
+    lines.append("   - 使用：'导致'、'使得'、'于是'、'从而'")
+    lines.append("")
+    lines.append("3. 动作密度：每5秒视频最多包含2-4个主要动作节点")
+    lines.append("   - 每个动作节点用1-2句话独立描述")
+    lines.append("   - 禁止将多个动作堆叠在一句话里")
+    lines.append("")
+    lines.append("4. 禁止的错误写法示例：")
+    lines.append("   - ❌ '角色奔跑、跳跃、转身、落地挥手'（动作堆叠，无顺序）")
+    lines.append("   - ✅ '角色先快速奔跑，然后纵身一跳，接着在空中转身，最后落地向大家挥手'")
     lines.append("")
     
     # 输出格式
-    lines.append("【输出格式 - 必须严格遵守】")
-    lines.append(f"[POSITIVE]正向关键词（用英文逗号分隔，10-20个，必须使用{output_lang}）")
-    lines.append(f"[NEGATIVE]负向关键词（用英文逗号分隔，8-15个，必须使用{output_lang}）")
-    lines.append(f"[DESCRIPTION]正向场景描述（详细描述本段视频内容，必须使用{output_lang}，不要使用任何Markdown格式）")
+    lines.append("【输出格式】")
+    lines.append("[POSITIVE]关键词（英文逗号分隔，10-20个）")
+    lines.append("[NEGATIVE]负向关键词（英文逗号分隔，8-15个）")
+    lines.append("[DESCRIPTION]详细场景描述（按上述结构组织）")
     lines.append("")
     lines.append("【格式示例】")
     if output_lang == "中文":
-        lines.append("[POSITIVE]特写, 黄金时刻, 逆光, 暖色调, 跟拍, 柔光, 侧光, 中景")
-        lines.append("[NEGATIVE]模糊, 低质量, 畸形的手, 多余的手指, 水印, 文字, 抖动, 混乱背景")
-        lines.append("[DESCRIPTION]【首帧】中景，一个穿红裙的女孩站在沙滩上面朝大海，夕阳余晖勾勒出她的轮廓。【镜头运动】镜头向后拉远，从近景变为全景。【动作】女孩开始奔跑，镜头切换到跟拍，跟随她的侧脸移动。")
+        lines.append("[POSITIVE]中景, 黄金时刻, 逆光, 暖色调, 跟拍, 柔光, 侧光, 动态模糊, 慢动作, 电影感, 宁静")
+        lines.append("[NEGATIVE]模糊, 低质量, 畸形的手, 多余的手指, 水印, 文字, 抖动, 穿模, 动作卡顿")
+        lines.append("[DESCRIPTION]【首帧】中景，一个穿白裙的女孩站在沙滩上面朝大海。【镜头运动】镜头向后拉远，从近景变为全景。【动作】女孩先开始奔跑，然后镜头切换到跟拍，跟随她的侧脸移动。【场景扩展】随着她的奔跑，镜头慢慢拉远，展现更广阔的海滩：金色沙滩延伸到远方，左边是礁石群，右边是椰林，海浪一层层拍打。【转场】淡入淡出，暗示时间流逝。")
     else:
-        lines.append("[POSITIVE]close-up, golden hour, backlighting, warm colors, tracking shot, soft lighting, side lighting, medium shot")
-        lines.append("[NEGATIVE]blurry, low quality, bad anatomy, extra fingers, watermark, text, shake, messy background")
-        lines.append("[DESCRIPTION][First Frame] Medium shot, a girl in a red dress stands on the beach facing the sea, her silhouette outlined by the setting sun. [Camera Movement] The camera pulls back, transitioning from medium to wide shot. [Action] The girl starts running, the camera switches to tracking shot, following her profile.")
+        lines.append("[POSITIVE]medium shot, golden hour, backlighting, warm colors, tracking shot, soft lighting, side lighting, motion blur, slow motion, cinematic, serene")
+        lines.append("[NEGATIVE]blurry, low quality, bad anatomy, extra fingers, watermark, text, shake, clipping, motion stutter")
+        lines.append("[DESCRIPTION][First Frame] Medium shot, a girl in a white dress stands on the beach facing the sea. [Camera Movement] The camera pulls back, transitioning from medium to wide shot. [Action] First the girl starts running, then the camera switches to tracking shot, following her profile. [Scene Expansion] As she runs, the camera slowly pulls back to reveal the vast beach: golden sand stretching into the distance, reefs on the left, palm trees on the right, waves lapping the shore. [Transition] Fade to black, suggesting time passing.")
     lines.append("")
     
     lines.append(knowledge)
@@ -426,24 +425,17 @@ Effects: slow motion, motion blur, lens flare, tilt-shift, time-lapse"""
     
     # 用户输入
     if has_optional and has_manual:
-        lines.append("【原图描述】（当前首帧，必须作为画面基础）")
-        lines.append(optional_text.strip())
-        lines.append("")
-        lines.append("【手工提示词】（请全面理解，可能包含创作意图、上一段内容、首尾帧描述等）")
-        lines.append(manual_text.strip())
-    elif has_optional and not has_manual:
-        lines.append("【任务】优化以下原图描述，生成更高质量的视频正向和负向提示词。")
-        lines.append("")
         lines.append("【原图描述】")
         lines.append(optional_text.strip())
-    elif not has_optional and has_manual:
-        lines.append("【任务】根据以下手工提示词，从零生成高质量的视频正向和负向提示词。")
         lines.append("")
         lines.append("【手工提示词】")
         lines.append(manual_text.strip())
-    
-    if not lines:
-        return None
+    elif has_optional and not has_manual:
+        lines.append("【原图描述】")
+        lines.append(optional_text.strip())
+    elif not has_optional and has_manual:
+        lines.append("【手工提示词】")
+        lines.append(manual_text.strip())
     
     lines.append("")
     lines.append(f"直接输出（{lang_inst}）：")
