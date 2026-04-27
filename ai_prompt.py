@@ -330,118 +330,145 @@ def _format_image_prompt(manual_text: str, optional_text: str, mode: str, detail
 
 
 def _format_video_prompt(manual_text: str, optional_text: str, mode: str, detail_level: str, output_lang: str) -> str:
-    """格式化视频提示词 - 基于文章方法论，强化叙事逻辑"""
+    """格式化视频提示词 - 剧情扩展为主，关键词为辅"""
     has_manual = manual_text and manual_text.strip()
     has_optional = optional_text and optional_text.strip()
     
     if output_lang == "中文":
         lang_inst = "使用中文输出"
         mode_text = "文生视频" if mode == "文生视频" else "图生视频"
-        keyword_lang = "必须使用中文"
-        
-        # 基于文章的美学控制知识库
-        knowledge = """【视觉元素知识库 - 按需选用】
-
-光源类型: 日光、人工光、月光、实用光、火光、荧光、阴天光、混合光、晴天光
-光线类型: 柔光、硬光、高对比度、侧光、底光、低对比度、边缘光、剪影、背光、逆光
-时间段: 白天、夜晚、日出、日落、黎明、黄昏、黄金时刻
-景别: 特写、近景、中景、中近景、全景、远景、广角
-构图: 中心构图、平衡构图、左侧构图、右侧构图、对称构图、短边构图
-镜头焦段: 广角、中焦距、长焦、鱼眼
-镜头运动: 固定、推进、拉远、上摇、下摇、左移、右移、手持、跟随、环绕
-角色情绪: 愤怒、恐惧、高兴、悲伤、惊讶、沉思、平静、焦虑
-视觉风格: 写实、电影感、纪录片、像素、3D、二次元、印象派、油画
-特效: 慢动作、动态模糊、镜头光晕、移轴、延时"""
     else:
         lang_inst = "use English output"
         mode_text = "text-to-video" if mode == "文生视频" else "image-to-video"
-        keyword_lang = "must use English"
-        
-        knowledge = """【Visual Elements Knowledge Base】
-
-Light Source: daylight, artificial light, moonlight, practical light, firelight, fluorescent, overcast, mixed light, sunlight
-Lighting: soft lighting, hard lighting, high contrast, side lighting, underlighting, low contrast, rim lighting, silhouette, backlighting
-Time: daytime, night, sunrise, sunset, dawn, dusk, golden hour
-Shot Size: close-up, medium close-up, medium shot, medium wide shot, wide shot, extreme wide shot
-Composition: center composition, balanced composition, left-heavy, right-heavy, symmetrical, short-side
-Lens: wide-angle, medium lens, telephoto, fisheye
-Camera Movement: static, push-in, pull-back, pan, tilt, tracking, handheld, follow, orbit
-Emotion: angry, fearful, happy, sad, surprised, pensive, calm, anxious
-Style: photorealistic, cinematic, documentary, pixel, 3D, anime, impressionist, oil painting
-Effects: slow motion, motion blur, lens flare, tilt-shift, time-lapse"""
+    
+    # 根据详细程度设定关键词数量（较低）及描述字数（较高）
+    if detail_level == "标准":
+        min_keywords = 15
+        max_keywords = 25
+        min_desc_words = 200
+    elif detail_level == "详细":
+        min_keywords = 25
+        max_keywords = 35
+        min_desc_words = 500
+    else:  # 极详细
+        min_keywords = 35
+        max_keywords = 45
+        min_desc_words = 800
     
     lines = []
-    lines.append("【指令】直接输出正向和负向提示词，不要有任何思考过程、分析或解释。")
+    lines.append("【指令】直接输出正向和负向提示词及详细描述，不要有任何思考过程、分析或解释。")
     lines.append("严禁使用任何Markdown格式。")
     lines.append("")
     lines.append(f"你是一个专业的视频提示词专家。{lang_inst}，{mode_text}模式。")
     lines.append("")
     
-    # 核心方法论（基于文章）
-    lines.append("【核心方法论】")
-    lines.append("提示词 = 关键词组合 + 详细场景描述")
-    lines.append("")
-    lines.append(f"关键词组合：从知识库中选择10-20个关键词，用英文逗号分隔，{keyword_lang}，服务于统一的艺术目标")
-    lines.append("")
-    lines.append("详细场景描述结构：")
-    lines.append("【首帧】描述画面起始状态")
-    lines.append("【镜头运动】描述镜头如何运动")
-    lines.append("【动作】按时间顺序描述动作序列（用'先...然后...接着...最后...'连接）")
-    lines.append("【场景扩展】描述环境变化和细节")
-    lines.append("【转场】描述如何过渡到下一段（如需要）")
+    # 核心规则
+    lines.append("【核心创作规则 - 必须严格遵守】")
+    lines.append("1. **至少60%的正向关键词可以来自场景、光线、构图等通用元素**，但必须保留用户输入中的核心角色和物体。")
+    lines.append("2. **剧情描述（DESCRIPTION）是重点**，必须充分扩展，达到字数要求。")
+    lines.append("3. **视频可以而且应该合理预测下一步剧情**：根据当前画面，设计将要发生的动作、环境变化、镜头运动，只要逻辑合理即可。")
+    lines.append("   - 例如：如果原图是一个人站在悬崖边，可以扩展“先转身，然后奔跑，最后纵身一跃”等后续动作。")
+    lines.append("   - 可以添加合理的新角色、新物体、天气变化、时间流逝等，以推动剧情发展。")
+    lines.append("4. 为每个核心元素添加丰富的细节，并主动扩展场景和环境。")
+    lines.append("5. **禁止生搬硬套预定义类别**；直接输出关键词序列即可。")
     lines.append("")
     
-    # 叙事逻辑强化
-    lines.append("【叙事逻辑规则 - 必须遵守】")
-    lines.append("")
-    lines.append("1. 时间顺序：动作必须按发生先后描述")
-    lines.append("   - 使用：'先'、'然后'、'接着'、'紧接着'、'之后'、'最后'")
-    lines.append("")
-    lines.append("2. 因果关系：动作之间的因果必须明确")
-    lines.append("   - 使用：'导致'、'使得'、'于是'、'从而'")
-    lines.append("")
-    lines.append("3. 动作密度：每5秒视频最多包含2-4个主要动作节点")
-    lines.append("   - 每个动作节点用1-2句话独立描述")
-    lines.append("   - 禁止将多个动作堆叠在一句话里")
-    lines.append("")
-    lines.append("4. 禁止的错误写法示例：")
-    lines.append("   - ❌ '角色奔跑、跳跃、转身、落地挥手'（动作堆叠，无顺序）")
-    lines.append("   - ✅ '角色先快速奔跑，然后纵身一跳，接着在空中转身，最后落地向大家挥手'")
+    # 叙事逻辑
+    lines.append("【叙事逻辑要求】")
+    lines.append("- 详细场景描述必须按时间顺序：先描述首帧（或起始状态），然后描述镜头运动，再按时间顺序描述动作序列（先...然后...接着...最后...）。")
+    lines.append("- 动作之间要有明确的因果或连贯关系，避免动作堆叠。")
+    lines.append("- 鼓励加入剧情转折、新事件、环境演变，使视频的每一秒都有新内容。")
+    lines.append("- 描述应充分展开，达到上述字数要求。")
     lines.append("")
     
-    # 输出格式
+    # 输出格式（动态显示数量）
     lines.append("【输出格式】")
-    lines.append(f"[POSITIVE]关键词（英文逗号分隔，10-20个，{keyword_lang}）")
-    lines.append(f"[NEGATIVE]负向关键词（英文逗号分隔，8-15个，{keyword_lang}）")
-    lines.append(f"[DESCRIPTION]详细场景描述（按上述结构组织，必须使用{output_lang}）")
-    lines.append("")
-    lines.append("【格式示例】")
     if output_lang == "中文":
-        lines.append("[POSITIVE]中景, 黄金时刻, 逆光, 暖色调, 跟拍, 柔光, 侧光, 动态模糊, 慢动作, 电影感, 宁静")
-        lines.append("[NEGATIVE]模糊, 低质量, 畸形的手, 多余的手指, 水印, 文字, 抖动, 穿模, 动作卡顿")
-        lines.append("[DESCRIPTION]【首帧】中景，一个穿白裙的女孩站在沙滩上面朝大海。【镜头运动】镜头向后拉远，从近景变为全景。【动作】女孩先开始奔跑，然后镜头切换到跟拍，跟随她的侧脸移动。【场景扩展】随着她的奔跑，镜头慢慢拉远，展现更广阔的海滩：金色沙滩延伸到远方，左边是礁石群，右边是椰林，海浪一层层拍打。【转场】淡入淡出，暗示时间流逝。")
+        lines.append(f"[POSITIVE]正向关键词（英文逗号分隔，{min_keywords}-{max_keywords}个，必须使用中文）")
+        lines.append(f"[NEGATIVE]负向关键词（英文逗号分隔，至少{min_keywords//2}个，必须使用中文）")
+        lines.append(f"[DESCRIPTION]详细场景描述（自然语言，必须使用中文，不少于{min_desc_words}字）")
     else:
-        lines.append("[POSITIVE]medium shot, golden hour, backlighting, warm colors, tracking shot, soft lighting, side lighting, motion blur, slow motion, cinematic, serene")
-        lines.append("[NEGATIVE]blurry, low quality, bad anatomy, extra fingers, watermark, text, shake, clipping, motion stutter")
-        lines.append("[DESCRIPTION][First Frame] Medium shot, a girl in a white dress stands on the beach facing the sea. [Camera Movement] The camera pulls back, transitioning from medium to wide shot. [Action] First the girl starts running, then the camera switches to tracking shot, following her profile. [Scene Expansion] As she runs, the camera slowly pulls back to reveal the vast beach: golden sand stretching into the distance, reefs on the left, palm trees on the right, waves lapping the shore. [Transition] Fade to black, suggesting time passing.")
+        lines.append(f"[POSITIVE]positive keywords (comma separated, {min_keywords}-{max_keywords} words, must use English)")
+        lines.append(f"[NEGATIVE]negative keywords (comma separated, at least {min_keywords//2} words, must use English)")
+        lines.append(f"[DESCRIPTION]detailed scene description (natural language, must use English, at least {min_desc_words} words)")
     lines.append("")
     
-    lines.append(knowledge)
+    # 示例（展示剧情扩展）
+    if output_lang == "中文":
+        lines.append("【示例】")
+        lines.append("用户输入：'一只金毛犬在黄昏的沙滩上，镜头跟随它'")
+        lines.append("[POSITIVE]金毛犬, 沙滩, 黄昏, 逆光, 跟拍, 中景, 电影感, 慢动作, 写实")
+        lines.append("[NEGATIVE]模糊, 抖动, 穿模, 动作卡顿, 低画质")
+        lines.append("[DESCRIPTION]【首帧】中景，一只金毛犬站在潮湿的沙滩上，夕阳从背后照射，形成金色轮廓光。镜头固定，展示犬只全身。【镜头运动】镜头开始向前跟拍，保持与犬只的距离。【动作】犬只先低头嗅了嗅沙子，然后突然加速奔跑，四肢大幅度伸展。跑出几步后，它转向左侧，海浪冲上沙滩触碰到它的爪子，它兴奋地跃过浪花。紧接着，它向远处的一只海鸥冲去，海鸥受惊起飞，犬只追逐了几步后停下，回头看向镜头，吐着舌头。【场景扩展】背景中海面波光粼粼，远处有渔船，天空从橙色渐变为紫色。几分钟后夜幕降临，沙滩上亮起几盏路灯，犬只的身影在灯光下拉长，最后慢镜头中它平静地坐下，望向大海。")
+    else:
+        lines.append("【Example】")
+        lines.append("User input: 'a golden retriever on a beach at dusk, camera following it'")
+        lines.append("[POSITIVE]golden retriever, beach, dusk, backlighting, tracking shot, medium shot, cinematic, slow motion, realistic")
+        lines.append("[NEGATIVE]blurry, shake, clipping, motion stutter, low quality")
+        lines.append("[DESCRIPTION][First frame] Medium shot, a golden retriever stands on wet sand, backlit by the setting sun. Camera static. [Camera movement] Camera begins tracking forward. [Action] Dog sniffs the sand, then breaks into a sprint. After a few strides, it veers left, a wave washes over its paws, and it leaps over the foam. Then it charges toward a seagull, the gull takes flight, the dog chases then stops, looks back, panting. [Scene expansion] Ocean sparkles, a fishing boat visible, sky transitions from orange to purple. As night falls, street lamps light up on the beach, the dog's silhouette stretches, and in slow motion it sits down, gazing at the sea.")
     lines.append("")
     
-    # 用户输入
+    # 知识库（保留作为可选参考）
+    if output_lang == "中文":
+        lines.append("【可选的参考知识库 - 仅当需要时使用】")
+        lines.append("光源类型: 日光、人工光、月光、实用光、火光、荧光、阴天光、混合光、晴天光")
+        lines.append("光线类型: 柔光、硬光、高对比度、侧光、底光、低对比度、边缘光、剪影、背光、逆光")
+        lines.append("时间段: 白天、夜晚、日出、日落、黎明、黄昏、黄金时刻")
+        lines.append("景别: 特写、近景、中景、中近景、全景、远景、广角")
+        lines.append("构图: 中心构图、平衡构图、左侧构图、右侧构图、对称构图、短边构图")
+        lines.append("镜头焦段: 广角、中焦距、长焦、鱼眼")
+        lines.append("镜头运动: 固定、推进、拉远、上摇、下摇、左移、右移、手持、跟随、环绕")
+        lines.append("角色情绪: 愤怒、恐惧、高兴、悲伤、惊讶、沉思、平静、焦虑")
+        lines.append("视觉风格: 写实、电影感、纪录片、像素、3D、二次元、印象派、油画")
+        lines.append("特效: 慢动作、动态模糊、镜头光晕、移轴、延时")
+    else:
+        lines.append("【Optional Knowledge Base - use only if needed】")
+        lines.append("Light Source: daylight, artificial light, moonlight, practical light, firelight, fluorescent, overcast, mixed light, sunlight")
+        lines.append("Lighting: soft lighting, hard lighting, high contrast, side lighting, underlighting, low contrast, rim lighting, silhouette, backlighting")
+        lines.append("Time: daytime, night, sunrise, sunset, dawn, dusk, golden hour")
+        lines.append("Shot Size: close-up, medium close-up, medium shot, medium wide shot, wide shot, extreme wide shot")
+        lines.append("Composition: center composition, balanced composition, left-heavy, right-heavy, symmetrical, short-side")
+        lines.append("Lens: wide-angle, medium lens, telephoto, fisheye")
+        lines.append("Camera Movement: static, push-in, pull-back, pan, tilt, tracking, handheld, follow, orbit")
+        lines.append("Emotion: angry, fearful, happy, sad, surprised, pensive, calm, anxious")
+        lines.append("Style: photorealistic, cinematic, documentary, pixel, 3D, anime, impressionist, oil painting")
+        lines.append("Effects: slow motion, motion blur, lens flare, tilt-shift, time-lapse")
+    lines.append("")
+    
+    # 用户输入部分（保持不变，但调整了关键词数量提示）
     if has_optional and has_manual:
-        lines.append("【原图描述】")
+        lines.append("【任务】综合以下内容，创作高质量的正向/负向关键词和详细场景描述。")
+        lines.append("")
+        lines.append("【原图/首帧描述】（必须保留并扩展）：")
         lines.append(optional_text.strip())
         lines.append("")
-        lines.append("【手工提示词】")
+        lines.append("【手工提示词】（扩展/修改方向，必须融入并扩展）：")
         lines.append(manual_text.strip())
+        lines.append("")
+        lines.append("【详细要求】")
+        lines.append("- 从上述描述中提取核心角色、物体、场景，并添加细节。")
+        lines.append("- **重点在于DESCRIPTION**，要详细设计后续剧情，包括动作序列、镜头运动、环境变化、时间流逝、新元素加入等。")
+        lines.append("- 正向关键词只需包含主要对象、场景、光线、构图、风格即可，不必过多扩展。")
+        lines.append("- 负向关键词针对常见视频瑕疵。")
+        lines.append(f"- 确保正向关键词数量在{min_keywords}-{max_keywords}之间，描述不少于{min_desc_words}字。")
     elif has_optional and not has_manual:
-        lines.append("【原图描述】")
+        lines.append("【任务】基于以下原图/首帧描述，创作高质量的正向/负向关键词和详细场景描述。")
+        lines.append("")
+        lines.append("【原图/首帧描述】：")
         lines.append(optional_text.strip())
+        lines.append("")
+        lines.append("【详细要求】")
+        lines.append("- 提取核心元素，并在DESCRIPTION中扩展剧情。")
+        lines.append(f"- 正向关键词{min_keywords}-{max_keywords}个，描述不少于{min_desc_words}字。")
     elif not has_optional and has_manual:
-        lines.append("【手工提示词】")
+        lines.append("【任务】根据以下手工提示词，创作高质量的正向/负向关键词和详细场景描述。")
+        lines.append("")
+        lines.append("【手工提示词】：")
         lines.append(manual_text.strip())
+        lines.append("")
+        lines.append("【详细要求】")
+        lines.append("- 根据手工提示词构建完整视频剧情，DESCRIPTION是关键。")
+        lines.append(f"- 正向关键词{min_keywords}-{max_keywords}个，描述不少于{min_desc_words}字。")
     
     lines.append("")
     lines.append(f"直接输出（{lang_inst}）：")
